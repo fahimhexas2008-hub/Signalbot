@@ -1,4 +1,4 @@
-zizfrom flask import Flask, jsonify
+from flask import Flask, jsonify
 import random
 from datetime import datetime
 
