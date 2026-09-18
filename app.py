@@ -11,7 +11,7 @@ def home():
         p=float(r['price'])
     except:
         p=111609.00
-    return f"<h1>BOT LIVE</h1><h3>Price: {p}</h3>"
+    return f"<h1>BOT LIVE</h1><h3>{p}</h3>"
 if BOT_TOKEN:
     bot=telebot.TeleBot(BOT_TOKEN)
     @bot.message_handler(commands=['day','signal','start'])
