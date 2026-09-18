@@ -1,0 +1,100 @@
+import os, threading, time, random
+from flask import Flask, render_template_string
+import telebot
+import requests
+
+BOT_TOKEN = os.environ.get("BOT_TOKEN")
+CHANNEL_ID = os.environ.get("CHANNEL_ID", "@fahim_trading_pro")
+
+app = Flask(__name__)
+
+# লাইভ প্রাইস আনার জন্য
+def get_price():
+    try:
+        r = requests.get("https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT", timeout=5).json()
+        return float(r['price'])
+    except:
+        return 111514.00
+
+# তোর ওয়েবসাইটের ডিজাইন
+HTML_PAGE = """
+<!DOCTYPE html>
+<html>
+<head><meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+body{background:#0a0a0a;color:white;font-family:sans-serif;text-align:center;padding:20px}
+.card{background:#1a1a1a;border-radius:20px;padding:20px;max-width:400px;margin:auto;border:1px solid #333}
+.price{color:#00ff88;font-size:36px;font-weight:bold}
+.btn-green{background:#00ff88;color:black;padding:15px;border-radius:12px;width:100%;border:none;font-size:18px;font-weight:bold;margin-top:15px;cursor:pointer}
+.btn-blue{background:#1e90ff;color:white;padding:12px;border-radius:12px;width:100%;border:none;margin-top:10px;cursor:pointer}
+.box{background:#00000080;padding:15px;border-radius:12px;text-align:left;margin-top:15px}
+</style>
+</head>
+<body>
+<div style="color:#00ff88;border:1px solid #00ff88;border-radius:20px;display:inline-block;padding:5px 15px">● BOT LIVE</div>
+<h1>FAHIM TRADING PRO</h1>
+<div class="card">
+<div class="price">$ {{price}}</div>
+<div>BTC/USDT • {{time}}</div>
+<div style="background:#2a2a3a;padding:12px;border-radius:12px;margin-top:15px;font-size:22px">LONG 📈 25x</div>
+<div class="box">
+<p><b>Entry:</b> ${{price}}</p>
+<p><b>TP1:</b> ${{tp1}} 🎯</p>
+<p><b>TP2:</b> ${{tp2}} 🎯</p>
+<p><b>SL:</b> ${{sl}} 🛑</p>
+</div>
+<form action="/send" method="post">
+<input type="hidden" name="price" value="{{price}}">
+<button class="btn-green">📤 Send to Telegram</button>
+</form>
+<button class="btn-blue" onclick="location.reload()">🔄 New Signal</button>
+</div>
+<p style="color:gray;margin-top:20px">Channel: @fahim_trading_pro</p>
+<p style="color:{{status_color}}">{{status}}</p>
+</body>
+</html>
+"""
+
+@app.route('/')
+def home():
+    price = get_price()
+    return render_template_string(HTML_PAGE, price=f"{price:,.2f}", time=time.strftime("%d %b, %I:%M %p"),
+    tp1=f"{price*1.008:,.2f}", tp2=f"{price*1.015:,.2f}", sl=f"{price*0.992:,.2f}", status="Ready to Send", status_color="gray")
+
+@app.route('/send', methods=['POST'])
+def send():
+    price = request.form.get('price', '111514.00')
+    text = f"""🔥 FAHIM TRADING PRO 🔥
+💰 BTC/USDT: ${price}
+📈 LONG 25x
+🎯 TP1: +0.8% | TP2: +1.5%
+🛑 SL: -0.8%
+⏰ {time.strftime('%d %b %I:%M %p')}
+Channel: @fahim_trading_pro"""
+    try:
+        bot = telebot.TeleBot(BOT_TOKEN)
+        bot.send_message(CHANNEL_ID, text)
+        msg = "✅ Telegram e chole geche!"
+        color = "#00ff88"
+    except Exception as e:
+        msg = f"❌ Error: {e} - Bot ke channel e admin koro!"
+        color = "red"
+    
+    price_f = get_price()
+    return render_template_string(HTML_PAGE, price=f"{price_f:,.2f}", time=time.strftime("%d %b, %I:%M %p"),
+    tp1=f"{price_f*1.008:,.2f}", tp2=f"{price_f*1.015:,.2f}", sl=f"{price_f*0.992:,.2f}", status=msg, status_color=color)
+
+# টেলিগ্রাম কমান্ডের জন্য বট
+def start_bot():
+    if not BOT_TOKEN: return
+    bot = telebot.TeleBot(BOT_TOKEN)
+    bot.remove_webhook()
+    time.sleep(1)
+    @bot.message_handler(commands=['start','day','signal'])
+    def handle(m):
+        bot.reply_to(m, "Website e jan: https://signalbot-1-n8bm.onrender.com")
+    while True:
+        try: bot.infinity_polling(timeout=60, long_polling_timeout=60)
+        except: time.sleep(5)
+
+threading.Thread(target=start_bot, daemon=True).start()
